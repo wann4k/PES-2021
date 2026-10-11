@@ -1,0 +1,49 @@
+name: Build EXE
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller pytest
+
+      - name: Test
+        run: python -m pytest -q
+
+      - name: Build exe
+        run: pyinstaller --noconfirm PES2021_Adboard_Studio.spec
+
+      - name: Smoke test (import & ffmpeg bundel)
+        shell: pwsh
+        run: |
+          if (!(Test-Path dist/PES2021_Adboard_Studio.exe)) { throw "exe tidak ada" }
+          Get-Item dist/PES2021_Adboard_Studio.exe | Format-List Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PES2021_Adboard_Studio
+          path: dist/PES2021_Adboard_Studio.exe
+
+      - name: Release (tag v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/PES2021_Adboard_Studio.exe
